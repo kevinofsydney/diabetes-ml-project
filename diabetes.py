@@ -1,8 +1,9 @@
 import csv
 import numpy as np
+import math
 
 filename = "diabetes.csv"
-DEBUG = False
+DEBUG = True
 
 # There are 9 columns in this CSV. The first 8 are features, titled as so:
 # - Pregnancies
@@ -104,6 +105,21 @@ def label_separator(combined_data):
     return data, labels
 
 
+def summariser(result, testlabel):
+    # XOR the results with the test labels and count the number of Falses to determine accuracy.
+    tmp = np.logical_xor(np.array(result), np.array(testlabel))
+    count = 0
+    for result in tmp:
+        if result == False:
+            count += 1
+
+    # if DEBUG:
+    #     print("%d correctly labelled out of %d (%.2f%%)" % (count, len(testlabel), count/len(testlabel)*100))
+
+    # Returns the accuracy of this fold in %
+    return count/len(testlabel)
+
+
 def knn(trainbatch, testbatch, k):
     traindata, trainlabel = label_separator(trainbatch)
     testdata, testlabel = label_separator(testbatch)
@@ -131,18 +147,61 @@ def knn(trainbatch, testbatch, k):
         else:
             result.append(1)
 
-    # XOR the results with the test labels and count the number of Falses to determine accuracy.
-    tmp = np.logical_xor(np.array(result), np.array(testlabel))
-    count = 0
-    for result in tmp:
-        if result == False:
-            count += 1
+    return summariser(result, testlabel)
 
-    if DEBUG:
-        print("%d correctly labelled out of %d (%.2f%%)" % (count, len(testlabel), count/len(testlabel)*100))
 
-    # Returns the accuracy of this fold in %
-    return count/len(testlabel)
+# This function calculates the probability density function for the given values
+def pdf(x, mu, sig):
+    pt1 = 1/(sig * math.sqrt(2 * math.pi))
+    pt2 = math.exp(-1 * (math.pow(x - mu, 2) / (2 * math.pow(sig, 2))))
+    return pt1 * pt2
+
+
+# P(H|E) = (P(E|H) * P(H))/P(E)
+def nb(traindata, testdata):
+    class_yes, class_no = [], []
+
+    # Separate the yes and no data points
+    while len(traindata) > 0:
+        current = traindata.pop()
+        if current[8] == 1:
+            class_yes.append(current)
+        else:
+            class_no.append(current)
+
+    # Separate the labels from the data. The labels of the training data aren't needed for NB.
+    yes_data, foo = label_separator(class_yes)
+    no_data, foo = label_separator(class_no)
+
+    # Calculate the mean of each attribute
+    yes_mean = np.mean(yes_data, axis=0)
+    no_mean = np.mean(no_data, axis=0)
+
+    # Calculate the stdev of each attribute
+    yes_std = np.std(yes_data, axis=0)
+    no_std = np.std(no_data, axis=0)
+
+    # Calculate the prior probability P(H)
+    total = len(yes_data) + len(no_data)
+    p_yes = len(yes_data) / total
+    p_no = len(no_data) / total
+
+    # Multiply the prior with the prob. of each attribute by via the PDF function
+    result = []
+    for row in testdata:
+        h_yes = p_yes
+        h_no = p_no
+        for i in range(8):
+            h_yes *= pdf(row[i], yes_mean[i], yes_std[i])
+            h_no *= pdf(row[i], no_mean[i], no_std[i])
+
+        if h_no > h_yes:
+            result.append(0)
+        else:
+            result.append(1)
+
+    foo, testlabels = label_separator(testdata)
+    return summariser(result, testlabels)
 
 
 if __name__ == "__main__":
@@ -152,20 +211,41 @@ if __name__ == "__main__":
 
     k = 5
     knn_accuracy = []
+    nb_accuracy = []
 
     print("Running k-Nearest Neighbour (k = %d) with 10-fold cross-validation..." % k)
 
     # Using one fold as the test set and the other 9 together as the training set, run k-nn
     for i in range(10):
 
-        if DEBUG:
-            print("Testing fold", i, "of 10...")
 
         pid_copy = folds[:]
         testbatch = pid_copy[i]
         pid_copy.remove(testbatch)
         trainbatch = [row for fold in pid_copy for row in fold] # Convert 3D list into 2D list
-        result = knn(trainbatch, testbatch, k)
-        knn_accuracy.append(result)
+        percent = knn(trainbatch, testbatch, k)
+        knn_accuracy.append(percent)
 
-    print("Average accuracy of %.2f%% across all ten folds." % (np.average(knn_accuracy)*100))
+        if DEBUG:
+            print("kNN, fold %d of 10: %.2f%%" % (i, percent * 100))
+
+    print("k-NN had an average accuracy of %.2f%% across all ten folds." % (np.average(knn_accuracy)*100))
+
+    print()
+    print("Running Naive Bayes with 10-fold cross-validation...")
+
+    # Using one fold as the test set and the other 9 together as the training set, run k-nn
+    for i in range(10):
+
+        pid_copy = folds[:]
+        testbatch = pid_copy[i]
+        pid_copy.remove(testbatch)
+        trainbatch = [row for fold in pid_copy for row in fold] # Convert 3D list into 2D list
+        percent = nb(trainbatch, testbatch)
+        nb_accuracy.append(percent)
+
+        if DEBUG:
+            print("NB, fold %d of 10: %.2f%%" % (i, percent * 100))
+
+    print("Naive Bayes had an average accuracy of %.2f%% across all ten folds." % (np.average(nb_accuracy)*100))
+
