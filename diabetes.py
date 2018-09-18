@@ -1,6 +1,5 @@
-import os
 import csv
-import numpy
+import numpy as np
 
 filename = "diabetes.csv"
 DEBUG = False
@@ -45,7 +44,7 @@ def csv_loader(filename):
     return pid_data
 
 
-# This function stratifies the data into 10 folds, making sure there are 'yes' and 'no'
+# This function stratifies and divides the data into 10 folds, making sure there are 'yes' and 'no'
 #   data points in each fold.
 def stratifier(pid_data):
     class_yes = []
@@ -93,22 +92,80 @@ def stratifier(pid_data):
 
     return folds
 
-def knn(trainbatch, testbatch, k):
 
-    return
+def label_separator(combined_data):
+    data = []
+    labels = []
+
+    for i in combined_data:
+        data.append(i[:8])
+        labels.append(i[8])
+
+    return data, labels
+
+
+def knn(trainbatch, testbatch, k):
+    traindata, trainlabel = label_separator(trainbatch)
+    testdata, testlabel = label_separator(testbatch)
+
+    result = []
+
+    for testrow in testdata:
+        label_tally = [0, 0] # label_tally[0] = No, label_tally[1] = Yes
+        distance = []
+
+        # Calculate the Euclidean distance between the test row and all of the training rows
+        for trainrow in traindata:
+            distance.append(np.linalg.norm(np.array(testrow) - np.array(trainrow)))
+
+        # np.argsort returns the array that sorts the distance array
+        nearest = np.argsort(distance)
+
+        # Retrieve the labels for the k-nearest neighbours
+        for j in range(k):
+            label_tally[trainlabel[nearest[j]]] += 1
+
+        # Count the number of neighbors to label the test datapoint
+        if label_tally[0] > label_tally[1]:  # Most neighbors are 'no' datapoints
+            result.append(0)
+        else:
+            result.append(1)
+
+    # XOR the results with the test labels and count the number of Falses to determine accuracy.
+    tmp = np.logical_xor(np.array(result), np.array(testlabel))
+    count = 0
+    for result in tmp:
+        if result == False:
+            count += 1
+
+    if DEBUG:
+        print("%d correctly labelled out of %d (%.2f%%)" % (count, len(testlabel), count/len(testlabel)*100))
+
+    # Returns the accuracy of this fold in %
+    return count/len(testlabel)
+
 
 if __name__ == "__main__":
     filename = "diabetes.csv"
     pid_data = csv_loader(filename)  # PID stands for Pima Indian Diabetes data
     folds = stratifier(pid_data)
 
-    # TODO: run for multiple values of k
     k = 5
+    knn_accuracy = []
+
+    print("Running k-Nearest Neighbour (k = %d) with 10-fold cross-validation..." % k)
 
     # Using one fold as the test set and the other 9 together as the training set, run k-nn
     for i in range(10):
+
+        if DEBUG:
+            print("Testing fold", i, "of 10...")
+
         pid_copy = folds[:]
         testbatch = pid_copy[i]
         pid_copy.remove(testbatch)
         trainbatch = [row for fold in pid_copy for row in fold] # Convert 3D list into 2D list
-        knn(trainbatch, testbatch, k)
+        result = knn(trainbatch, testbatch, k)
+        knn_accuracy.append(result)
+
+    print("Average accuracy of %.2f%% across all ten folds." % (np.average(knn_accuracy)*100))
