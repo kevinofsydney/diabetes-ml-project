@@ -1,6 +1,7 @@
 import csv
 import numpy as np
 import math
+import sys
 
 filename = "diabetes.csv"
 DEBUG = True
@@ -110,7 +111,7 @@ def summariser(result, testlabel):
     tmp = np.logical_xor(np.array(result), np.array(testlabel))
     count = 0
     for result in tmp:
-        if result == False:
+        if not result: # If result is False
             count += 1
 
     # if DEBUG:
@@ -205,11 +206,20 @@ def nb(traindata, testdata):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Please specify how many neighbours you want to use.")
+        sys.exit()
+
+    k = int(sys.argv[1])
+
+    if k % 2 == 0:
+        print("Please choose an odd number of neighbors.")
+        sys.exit()
+
     filename = "diabetes.csv"
     pid_data = csv_loader(filename)  # PID stands for Pima Indian Diabetes data
     folds = stratifier(pid_data)
 
-    k = 5
     knn_accuracy = []
     nb_accuracy = []
 
@@ -217,7 +227,6 @@ if __name__ == "__main__":
 
     # Using one fold as the test set and the other 9 together as the training set, run k-nn
     for i in range(10):
-
 
         pid_copy = folds[:]
         testbatch = pid_copy[i]
