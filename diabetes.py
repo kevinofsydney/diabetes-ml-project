@@ -4,6 +4,7 @@ import math
 
 filename = "diabetes.csv"
 DEBUG = True
+CSV = False
 
 # There are 9 columns in this CSV. The first 8 are features, titled as so:
 # - Pregnancies
@@ -78,7 +79,7 @@ def stratifier(pid_data):
             cursor += 1
 
     # This code block exports the folds as a CSV, just for checking purposes
-    if DEBUG:
+    if CSV:
         with open("pid-folds.csv", 'w') as outfile:
             writer = csv.writer(outfile, delimiter=',')
 
