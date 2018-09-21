@@ -3,9 +3,8 @@ import numpy as np
 import math
 import sys
 
-filename = "diabetes.csv"
 DEBUG = True
-CSV = False
+CSV = True
 
 # There are 9 columns in this CSV. The first 8 are features, titled as so:
 # - Pregnancies
@@ -259,3 +258,20 @@ if __name__ == "__main__":
 
     print("Naive Bayes had an average accuracy of %.2f%% across all ten folds." % (np.average(nb_accuracy)*100))
 
+    fold_no = list(range(1, 11))
+
+    # This code block exports the folds as a CSV, just for checking purposes
+    if CSV:
+        with open("results.csv", 'w') as outfile:
+            writer = csv.writer(outfile, delimiter=',')
+
+            fold_no = list(range(1, 11))
+
+            writer.writerow([str(k) + "-Nearest Neighbors results"])
+            writer.writerow(fold_no)
+            writer.writerow(knn_accuracy)
+            writer.writerow("")
+
+            writer.writerow(["Naive Bayes"])
+            writer.writerow(fold_no)
+            writer.writerow(nb_accuracy)
